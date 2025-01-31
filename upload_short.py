@@ -87,6 +87,7 @@ def upload_all_videos(youtube, folder_path="./videos"):
                 try:
                     print(f"Uploading {video_path} - Title: {title}")
                     upload_video(youtube, video_path, title, description)  # Upload
+                    shutil.rmtree(folder_full_path) # Remove subfolder and its contents
                 except Exception as e:
                     print(f"Failed to upload {video_path} - Error: {e}")
             else:
@@ -111,4 +112,4 @@ if __name__ == '__main__':
     upload_all_videos(youtube, videos_path)
 
     # Delete everything
-    clear_folder(videos_path)
+    #clear_folder(videos_path)
