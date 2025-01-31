@@ -1,24 +1,46 @@
 import os
-import google_auth_oauthlib.flow
-import googleapiclient.discovery
-import googleapiclient.errors
-import googleapiclient.http
+import pickle
+from google_auth_oauthlib.flow import InstalledAppFlow
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaFileUpload
 
-SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
+# Scopes required for uploading to YouTube
+SCOPES = ['https://www.googleapis.com/auth/youtube.upload']
+
+# Path to your client_secrets.json file
+CLIENT_SECRETS_FILE = 'client_secrets.json'
+TOKEN_FILE = 'token.json'
 
 def authenticate():
-    """Authenticate and return the YouTube API client."""
-    flow = google_auth_oauthlib.flow.InstalledAppFlow.from_client_secrets_file(
-        "client_secrets.json", SCOPES
-    )
-    credentials = flow.run_local_server(port=8080)
-    youtube = googleapiclient.discovery.build("youtube", "v3", credentials=credentials)
+    """Authenticate and return the YouTube API service."""
+    credentials = None
+
+    # Check if token already exists
+    if os.path.exists(TOKEN_FILE):
+        print('Loading credentials from file...')
+        with open(TOKEN_FILE, 'rb') as token:
+            credentials = pickle.load(token)
+
+    # If no valid credentials are available, let the user log in
+    if not credentials or not credentials.valid:
+        if credentials and credentials.expired and credentials.refresh_token:
+            print('Refreshing expired credentials...')
+            credentials.refresh(Request())
+        else:
+            print('Authentication required...')
+            flow = InstalledAppFlow.from_client_secrets_file(CLIENT_SECRETS_FILE, SCOPES)
+            credentials = flow.run_local_server(port=8080)
+        
+        # Save credentials to a file for future runs
+        with open(TOKEN_FILE, 'wb') as token:
+            pickle.dump(credentials, token)
+
+    # Build the YouTube API client
+    youtube = build('youtube', 'v3', credentials=credentials)
     return youtube
 
-def upload_video(video_path, title, description, category_id="22", privacy_status="public"):
+def upload_video(youtube, video_path, title, description, category_id="22", privacy_status="public"):
     """Uploads a video to YouTube Shorts."""
-    youtube = authenticate()
-
     request = youtube.videos().insert(
         part="snippet,status",
         body={
@@ -30,12 +52,18 @@ def upload_video(video_path, title, description, category_id="22", privacy_statu
             },
             "status": {"privacyStatus": privacy_status},
         },
-        media_body=googleapiclient.http.MediaFileUpload(video_path, chunksize=-1, resumable=True),
+        media_body=MediaFileUpload(video_path, chunksize=-1, resumable=True),
     )
 
     response = request.execute()
     print(f"Uploaded: {response['id']} - {title}")
 
-if __name__ == "__main__":
-    video_file = "./videos/video.mp4"  # Change this to your video file path
-    upload_video(video_file, "My Automated YouTube Short", "This is an automated upload!")
+    #pass
+
+if __name__ == '__main__':
+    youtube = authenticate()  # Authenticate and get YouTube API service
+    video_path = './videos/video.mp4'
+    title = 'test short'
+    description = 'this is a test'
+    upload_video(youtube, video_path, title, description)  # Upload video
+
