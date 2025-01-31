@@ -61,9 +61,14 @@ def upload_video(youtube, video_path, title, description, category_id="22", priv
     #pass
 
 if __name__ == '__main__':
-    youtube = authenticate()  # Authenticate and get YouTube API service
-    video_path = './videos/video.mp4'
+    # Authenticate and get YouTube API service
+    youtube = authenticate() 
+
+    # Upload video, then delete it
+    video_path = './videos/video.mp4'                       # specs
     title = 'test short'
     description = 'this is a test'
-    upload_video(youtube, video_path, title, description)  # Upload video
+    upload_video(youtube, video_path, title, description)   # upload
+    os.remove(video_path)                                   # delete
+
 
