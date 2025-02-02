@@ -1,3 +1,7 @@
+###############################################################################
+#                               LIBRARIES
+###############################################################################
+
 import os, shutil
 import pickle
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -5,12 +9,50 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 from google.auth.transport.requests import Request
 
+
+###############################################################################
+#                               CONSTANTS
+###############################################################################
+
 # Scopes required for uploading to YouTube
 SCOPES = ['https://www.googleapis.com/auth/youtube.upload']
 
 # Path to your client_secrets.json file
 CLIENT_SECRETS_FILE = 'client_secrets.json'
+
+# Path to your token.json file
 TOKEN_FILE = 'token.json'
+
+
+###############################################################################
+#                               FILES
+###############################################################################
+
+def read_text_file(file_path):
+    """Reads the content of a text file and returns it as a string."""
+    with open(file_path, "r", encoding="utf-8") as f:
+        return f.read().strip()  # Read full text and strip extra spaces
+
+def find_first_file_by_extension(folder_path, extensions):
+    """Finds the first file with a given set of extensions in a folder."""
+    for file in os.listdir(folder_path):
+        if file.lower().endswith(extensions):
+            return os.path.join(folder_path, file)  # Return full path
+    return None  # No matching file found
+def clear_folder(folder_path):
+    """Deletes all files and subdirectories in a folder, but keeps the folder itself"""
+    for item in os.listdir(folder_path): # List all items in the folder
+        item_path = os.path.join(folder_path, item)
+        if os.path.isdir(item_path):
+            shutil.rmtree(item_path) # Delete subdirectory and all its contents
+        else:
+            os.remove(item_path) # Delete file
+    print(f"Cleared contents of {folder_path}")
+
+
+###############################################################################
+#                               YOUTUBE
+###############################################################################
 
 def authenticate():
     """Authenticate and return the YouTube API service."""
@@ -59,18 +101,6 @@ def upload_video(youtube, video_path, title, description, category_id="22", priv
     response = request.execute()
     print(f"Uploaded: {response['id']} - {title}")
 
-def read_text_file(file_path):
-    """Reads the content of a text file and returns it as a string."""
-    with open(file_path, "r", encoding="utf-8") as f:
-        return f.read().strip()  # Read full text and strip extra spaces
-
-def find_first_file_by_extension(folder_path, extensions):
-    """Finds the first file with a given set of extensions in a folder."""
-    for file in os.listdir(folder_path):
-        if file.lower().endswith(extensions):
-            return os.path.join(folder_path, file)  # Return full path
-    return None  # No matching file found
-
 def upload_all_videos(youtube, folder_path="./videos"):
     """Uploads all videos in the specified folder."""
     for folder in os.listdir(folder_path):
@@ -93,15 +123,10 @@ def upload_all_videos(youtube, folder_path="./videos"):
             else:
                 print(f"Skipping {folder} - Missing video or text file")
 
-def clear_folder(folder_path):
-    """Deletes all files and subdirectories in a folder, but keeps the folder itself"""
-    for item in os.listdir(folder_path): # List all items in the folder
-        item_path = os.path.join(folder_path, item)
-        if os.path.isdir(item_path):
-            shutil.rmtree(item_path) # Delete subdirectory and all its contents
-        else:
-            os.remove(item_path) # Delete file
-    print(f"Cleared contents of {folder_path}")
+
+###############################################################################
+#                               MAIN
+###############################################################################
 
 if __name__ == '__main__':
     # Authenticate and get YouTube API service
