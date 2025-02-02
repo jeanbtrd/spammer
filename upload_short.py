@@ -71,14 +71,14 @@ class Video():
         self.title = os.path.splitext(os.path.basename(self.path))[0]                   # Title
         self.descr = read_text_file(find_first_file_by_extension(dir, "txt"))           # Description
 
-    #def __del__(self):
-    #    """Destructor. Eliminates video folder and its contents."""
-    #    if (self.up_yt):
-    #        shutil.rmtree(self.dir)
-    #        return True
-    #    else:
-    #        print("Video not yet uploaded on Youtube. Not removing it.\n")
-    #        return False
+    def __del__(self):
+        """Destructor. Eliminates video folder and its contents."""
+        if (self.up_yt):
+            shutil.rmtree(self.dir)
+            return True
+        else:
+            print("Video not yet uploaded on Youtube. Not removing it.\n")
+            return False
 
     def yt_upload(self, youtube, category_id="22", privacy_status="public"):
         """Uploads the video on youtube."""
