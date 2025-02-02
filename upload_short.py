@@ -23,6 +23,9 @@ CLIENT_SECRETS_FILE = 'client_secrets.json'
 # Path to your token.json file
 TOKEN_FILE = 'token.json'
 
+# Path to where you keep the videos
+VIDEOS_PATH = './videos'
+
 
 ###############################################################################
 #                               FILES
@@ -34,11 +37,12 @@ def read_text_file(file_path):
         return f.read().strip()  # Read full text and strip extra spaces
 
 def find_first_file_by_extension(folder_path, extensions):
-    """Finds the first file with a given set of extensions in a folder."""
+    """Finds the first file with a given set of extensions in a folder. Returns its path."""
     for file in os.listdir(folder_path):
         if file.lower().endswith(extensions):
             return os.path.join(folder_path, file)  # Return full path
     return None  # No matching file found
+
 def clear_folder(folder_path):
     """Deletes all files and subdirectories in a folder, but keeps the folder itself"""
     for item in os.listdir(folder_path): # List all items in the folder
@@ -51,10 +55,65 @@ def clear_folder(folder_path):
 
 
 ###############################################################################
-#                               YOUTUBE
+#                               VIDEO
 ###############################################################################
 
-def authenticate():
+class Video():
+    """ The video's class. All file managing and uploading will be ported here. """
+
+    def __init__(self, dir):
+        """Initialization. Title description etc gotten from dir."""
+        # FLAGS
+        self.up_yt = False  # Uploaded on youtube
+        # INFO
+        self.dir = dir      # Folder of the video
+        self.path = find_first_file_by_extension(dir, (".mp4", ".mov", ".avi", ".mkv")) # Path
+        self.title = os.path.splitext(os.path.basename(self.path))[0]                   # Title
+        self.descr = read_text_file(find_first_file_by_extension(dir, "txt"))           # Description
+
+    #def __del__(self):
+    #    """Destructor. Eliminates video folder and its contents."""
+    #    if (self.up_yt):
+    #        shutil.rmtree(self.dir)
+    #        return True
+    #    else:
+    #        print("Video not yet uploaded on Youtube. Not removing it.\n")
+    #        return False
+
+    def yt_upload(self, youtube, category_id="22", privacy_status="public"):
+        """Uploads the video on youtube."""
+        # Set up the request
+        request = youtube.videos().insert(
+            part="snippet,status",
+            body={
+                "snippet": {
+                    "title": self.title,
+                    "description": self.descr,
+                    "tags": ["Shorts", "Automation"],
+                    "categoryId": category_id,
+                },
+                "status": {"privacyStatus": privacy_status},
+            },
+            media_body = MediaFileUpload(self.path, chunksize=-1, resumable=True),
+        )
+
+        # Do (try) it
+        try:
+            print(f"Uploading {self.path} - Title: {self.title}\n")
+            response = request.execute()
+            print(f"Uploaded: {response['id']} - {self.title}")
+            self.up_yt = True
+            return True
+        except Exception as e:
+            print(f"Failed to upload {self.path} - Error: {e}")
+            return False
+
+
+###############################################################################
+#                               AUTHENTICATION
+###############################################################################
+
+def yt_authenticate():
     """Authenticate and return the YouTube API service."""
     credentials = None
 
@@ -82,47 +141,6 @@ def authenticate():
     youtube = build('youtube', 'v3', credentials=credentials)
     return youtube
 
-def upload_video(youtube, video_path, title, description, category_id="22", privacy_status="public"):
-    """Uploads a video to YouTube Shorts."""
-    request = youtube.videos().insert(
-        part="snippet,status",
-        body={
-            "snippet": {
-                "title": title,
-                "description": description,
-                "tags": ["Shorts", "Automation"],
-                "categoryId": category_id,
-            },
-            "status": {"privacyStatus": privacy_status},
-        },
-        media_body=MediaFileUpload(video_path, chunksize=-1, resumable=True),
-    )
-
-    response = request.execute()
-    print(f"Uploaded: {response['id']} - {title}")
-
-def upload_all_videos(youtube, folder_path="./videos"):
-    """Uploads all videos in the specified folder."""
-    for folder in os.listdir(folder_path):
-        folder_full_path = os.path.join(folder_path, folder)
-
-        if os.path.isdir(folder_full_path):
-            video_path = find_first_file_by_extension(folder_full_path, (".mp4", ".mov", ".avi", ".mkv"))
-            text_file_path = find_first_file_by_extension(folder_full_path, (".txt",))
-
-            if video_path and text_file_path:
-                title = os.path.splitext(os.path.basename(video_path))[0]  # Extract title from video filename
-                description = read_text_file(text_file_path)  # Read the first .txt file as description
-
-                try:
-                    print(f"Uploading {video_path} - Title: {title}")
-                    upload_video(youtube, video_path, title, description)  # Upload
-                    shutil.rmtree(folder_full_path) # Remove subfolder and its contents
-                except Exception as e:
-                    print(f"Failed to upload {video_path} - Error: {e}")
-            else:
-                print(f"Skipping {folder} - Missing video or text file")
-
 
 ###############################################################################
 #                               MAIN
@@ -130,11 +148,15 @@ def upload_all_videos(youtube, folder_path="./videos"):
 
 if __name__ == '__main__':
     # Authenticate and get YouTube API service
-    youtube = authenticate() 
+    youtube = yt_authenticate() 
 
-    # Upload everything
-    videos_path = './videos'
-    upload_all_videos(youtube, videos_path)
+    # Upload everything on youtube
+    for dir in os.listdir(VIDEOS_PATH):
+        dir_path = os.path.join(VIDEOS_PATH, dir)
+        if os.path.isdir(dir_path):
+            short = Video(dir=dir_path)
+            short.yt_upload(youtube=youtube)
+            if (short.up_yt): del short
 
     # Delete everything
     #clear_folder(videos_path)
