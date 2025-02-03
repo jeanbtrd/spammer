@@ -14,17 +14,25 @@ from google.auth.transport.requests import Request
 #                               CONSTANTS
 ###############################################################################
 
-# Scopes required for uploading to YouTube
-SCOPES = ['https://www.googleapis.com/auth/youtube.upload']
-
-# Path to your client_secrets.json file
-CLIENT_SECRETS_FILE = 'client_secrets.json'
-
-# Path to your token.json file
-TOKEN_FILE = 'token.json'
-
 # Path to where you keep the videos
 VIDEOS_PATH = './videos'
+
+####    Youtube     ####
+#
+# Scopes required for uploading to YouTube
+SCOPES_YT = ['https://www.googleapis.com/auth/youtube.upload']
+# Path to your client_secrets.json file
+CLIENT_SECRETS_YT = 'client_secrets_yt.json'
+# Paths to your youtube token file
+TOKEN_FILE_YT = 'token_yt.json'
+
+####    Instagram   ####
+#
+CLIENT_ID_IG = 'YOUR_CLIENT_ID'
+CLIENT_SECRET_IG = 'YOUR_CLIENT_SECRET'
+REDIRECT_URI_IG = 'YOUR_REDIRECT_URI'
+TOKEN_FILE_IG = 'instagram_token.json'
+SCOPES_IG = 'user_profile,user_media'
 
 
 ###############################################################################
@@ -118,9 +126,9 @@ def yt_authenticate():
     credentials = None
 
     # Check if token already exists
-    if os.path.exists(TOKEN_FILE):
+    if os.path.exists(TOKEN_FILE_YT):
         print('Loading credentials from file...')
-        with open(TOKEN_FILE, 'rb') as token:
+        with open(TOKEN_FILE_YT, 'rb') as token:
             credentials = pickle.load(token)
 
     # If no valid credentials are available, let the user log in
@@ -130,16 +138,64 @@ def yt_authenticate():
             credentials.refresh(Request())
         else:
             print('Authentication required...')
-            flow = InstalledAppFlow.from_client_secrets_file(CLIENT_SECRETS_FILE, SCOPES)
+            flow = InstalledAppFlow.from_client_secrets_file(CLIENT_SECRETS_YT, SCOPES_YT)
             credentials = flow.run_local_server(port=8080)
         
         # Save credentials to a file for future runs
-        with open(TOKEN_FILE, 'wb') as token:
+        with open(TOKEN_FILE_YT, 'wb') as token:
             pickle.dump(credentials, token)
 
     # Build the YouTube API client
     youtube = build('youtube', 'v3', credentials=credentials)
     return youtube
+
+def ig_authenticate():
+    """Authenticate and return the Instagram API access token."""
+    access_token = None
+
+    # Check if token already exists
+    if os.path.exists(TOKEN_FILE_IG):
+        print('Loading credentials from file...')
+        with open(TOKEN_FILE_IG, 'r') as token_file:
+            data = json.load(token_file)
+            access_token = data.get('access_token')
+
+    # If no token or token is invalid, start OAuth flow
+    if not access_token:
+        print('Authentication required...')
+        auth_url = (
+            f'https://api.instagram.com/oauth/authorize'
+            f'?client_id={CLIENT_ID_IG}'
+            f'&redirect_uri={REDIRECT_URI_IG}'
+            f'&scope={SCOPES_IG}'
+            f'&response_type=code'
+        )
+        print(f'Please visit this URL to authorize the app: {auth_url}')
+
+        auth_code = input('Enter the code from the redirect URL: ')
+
+        # Exchange code for access token
+        token_url = 'https://api.instagram.com/oauth/access_token'
+        payload = {
+            'client_id': CLIENT_ID_IG,
+            'client_secret': CLIENT_SECRET_IG,
+            'grant_type': 'authorization_code',
+            'redirect_uri': REDIRECT_URI_IG,
+            'code': auth_code
+        }
+        response = requests.post(token_url, data=payload)
+        if response.status_code == 200:
+            access_data = response.json()
+            access_token = access_data['access_token']
+
+            # Save token for future use
+            with open(TOKEN_FILE_IG, 'w') as token_file:
+                json.dump(access_data, token_file)
+        else:
+            print('Error obtaining access token:', response.text)
+            return None
+
+    return access_token
 
 
 ###############################################################################
